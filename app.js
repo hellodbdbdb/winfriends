@@ -1,14 +1,28 @@
 /* Win Friends — App Logic
-   Same pattern as ExecComms: React via CDN, no build step, localStorage
+   React via CDN, no build step, Firebase Auth + Firestore sync
    ==================================================================== */
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 
-/* ── Storage helpers ── */
+/* ── Firebase refs ── */
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+/* ── localStorage helpers (offline fallback) ── */
 const K_DATA = "wf_data";
 const K_SET  = "wf_set";
-const K_AUTH = "wf_auth";
 function ld(k, f) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : f; } catch { return f; } }
 function sv(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+/* ── Firestore sync helpers ── */
+function userDoc(uid) { return db.collection("users").doc(uid); }
+let _saveTimer = null;
+function debouncedSave(uid, data, settings) {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    userDoc(uid).set({ data, settings, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(e => console.warn("Firestore save failed:", e));
+  }, 800);
+}
 
 /* ── Date helpers ── */
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -96,6 +110,25 @@ function Btn({ children, onClick, primary, disabled, style: sx }) {
    LOGIN
    ═══════════════════════════════════════════════════════════════════════════ */
 function Login({ onIn }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function googleSignIn() {
+    setBusy(true); setErr(null);
+    try {
+      const result = await auth.signInWithPopup(googleProvider);
+      onIn(result.user);
+    } catch (e) {
+      console.error("Google sign-in failed:", e);
+      setErr("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
+      setBusy(false);
+    }
+  }
+
+  function demoSignIn() {
+    onIn(null); // null = demo mode, localStorage only
+  }
+
   return (
     <div style={{ minHeight: "100dvh", background: "#0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, fontFamily: "var(--mono)" }}>
       <style>{CSS}</style>
@@ -111,11 +144,12 @@ function Login({ onIn }) {
         <div style={{ width: 48, height: 2, background: "#FFCB47", margin: "20px auto" }} />
         <p style={{ fontFamily: "var(--mono)", fontSize: 11, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>30 Prinzipien &middot; Dale Carnegie</p>
       </div>
-      <button onClick={() => onIn("g")} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "#F0F0F0", border: "none", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: "#0A0A0A", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+      {err && <div style={{ color: "#FF5C5C", fontSize: 12, fontFamily: "var(--mono)", marginBottom: 16, textAlign: "center", maxWidth: 300 }}>{err}</div>}
+      <button onClick={googleSignIn} disabled={busy} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "#F0F0F0", border: "none", cursor: busy ? "wait" : "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: "#0A0A0A", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.6 : 1 }}>
         <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-        MIT GOOGLE ANMELDEN
+        {busy ? "ANMELDUNG..." : "MIT GOOGLE ANMELDEN"}
       </button>
-      <button onClick={() => onIn("d")} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "transparent", border: "1px solid #333", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 500, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <button onClick={demoSignIn} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "transparent", border: "1px solid #333", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 500, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase" }}>
         Demo — ohne Account
       </button>
     </div>
@@ -133,7 +167,7 @@ function HeuteTab({ data, setData }) {
 
   function upd(field, val) {
     const n = { ...data, daily: { ...data.daily, [key]: { ...entry, [field]: val } } };
-    setData(n); sv(K_DATA, n);
+    setData(n);
   }
 
   // Streak calculation
@@ -270,7 +304,7 @@ function LernenTab({ data, setData }) {
     const prev = quiz[p.id] || { know: 0, practice: 0 };
     quiz[p.id] = { know: prev.know + (rating === "know" ? 1 : 0), practice: prev.practice + (rating === "practice" ? 1 : 0) };
     const n = { ...data, quiz };
-    setData(n); sv(K_DATA, n);
+    setData(n);
     if (quizIdx < shuffled.length - 1) {
       setQuizIdx(quizIdx + 1);
       setFlipped(false);
@@ -412,7 +446,7 @@ function JournalTab({ data, setData }) {
     if (!newText.trim()) return;
     const journal = [...(data.journal || []), { id: Date.now(), date: newDate, principleId: Number(newPid), text: newText.trim() }];
     const n = { ...data, journal };
-    setData(n); sv(K_DATA, n);
+    setData(n);
     setNewText("");
     setAdding(false);
   }
@@ -420,7 +454,7 @@ function JournalTab({ data, setData }) {
   function removeEntry(id) {
     const journal = (data.journal || []).filter(j => j.id !== id);
     const n = { ...data, journal };
-    setData(n); sv(K_DATA, n);
+    setData(n);
   }
 
   return (
@@ -497,7 +531,7 @@ function JournalTab({ data, setData }) {
    SETTINGS TAB
    ═══════════════════════════════════════════════════════════════════════════ */
 function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
-  function us(k, v) { const n = { ...st, [k]: v }; setSt(n); sv(K_SET, n); }
+  function us(k, v) { const n = { ...st, [k]: v }; setSt(n); }
 
   // Stats
   const totalDays = Object.values(data.daily || {}).filter(e => e.done).length;
@@ -581,10 +615,10 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           Import
-          <input type="file" accept=".json" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); setData(d); sv(K_DATA, d); } catch { alert("Ungültige Datei"); } }; r.readAsText(f); }} />
+          <input type="file" accept=".json" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); setData(d); } catch { alert("Ungültige Datei"); } }; r.readAsText(f); }} />
         </label>
       </div>
-      <button onClick={() => { if (confirm("Alle Daten löschen?")) { setData({}); sv(K_DATA, {}); } }} style={{
+      <button onClick={() => { if (confirm("Alle Daten löschen?")) { setData({}); } }} style={{
         width: "100%", padding: "12px", fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500,
         background: "transparent", border: "1px solid var(--c-p3)", color: "var(--c-p3)", cursor: "pointer", borderRadius: 2,
       }}>Reset</button>
@@ -628,13 +662,69 @@ function Nav({ tab, set }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   APP
+   APP — Firebase Auth + Firestore sync
    ═══════════════════════════════════════════════════════════════════════════ */
 function App() {
-  const [authed, setAuthed] = useState(() => ld(K_AUTH, false));
+  const [user, setUser] = useState(undefined); // undefined=loading, null=not authed, object=authed
+  const [isDemo, setIsDemo] = useState(false);
   const [data, setData] = useState(() => ld(K_DATA, {}));
   const [st, setSt] = useState(() => ld(K_SET, { mode: "dark", fontSize: 15 }));
   const [tab, setTab] = useState("heute");
+  const [syncing, setSyncing] = useState(false);
+
+  // Listen to Firebase auth state
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(u => {
+      setUser(u || null);
+      if (u) setIsDemo(false);
+    });
+    return unsub;
+  }, []);
+
+  // Load data from Firestore when user signs in
+  useEffect(() => {
+    if (!user || isDemo) return;
+    setSyncing(true);
+    userDoc(user.uid).get().then(doc => {
+      if (doc.exists) {
+        const remote = doc.data();
+        // Merge: remote wins (it's the cloud truth)
+        if (remote.data) { setData(remote.data); sv(K_DATA, remote.data); }
+        if (remote.settings) { setSt(remote.settings); sv(K_SET, remote.settings); }
+      } else {
+        // First time: push local data to Firestore
+        const localData = ld(K_DATA, {});
+        const localSt = ld(K_SET, { mode: "dark", fontSize: 15 });
+        userDoc(user.uid).set({ data: localData, settings: localSt, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      setSyncing(false);
+    }).catch(e => { console.warn("Firestore load failed:", e); setSyncing(false); });
+
+    // Real-time listener for cross-device sync
+    const unsub = userDoc(user.uid).onSnapshot(doc => {
+      if (doc.exists && doc.metadata.hasPendingWrites === false) {
+        const remote = doc.data();
+        if (remote.data) { setData(remote.data); sv(K_DATA, remote.data); }
+        if (remote.settings) { setSt(remote.settings); sv(K_SET, remote.settings); }
+      }
+    });
+    return unsub;
+  }, [user, isDemo]);
+
+  // Wrapped setters that sync to both localStorage and Firestore
+  const setDataSync = useCallback((newData) => {
+    const d = typeof newData === "function" ? newData(data) : newData;
+    setData(d);
+    sv(K_DATA, d);
+    if (user && !isDemo) debouncedSave(user.uid, d, st);
+  }, [user, isDemo, data, st]);
+
+  const setStSync = useCallback((newSt) => {
+    const s = typeof newSt === "function" ? newSt(st) : newSt;
+    setSt(s);
+    sv(K_SET, s);
+    if (user && !isDemo) debouncedSave(user.uid, data, s);
+  }, [user, isDemo, data, st]);
 
   const theme = st.mode || "dark";
 
@@ -645,15 +735,38 @@ function App() {
     if (meta) meta.setAttribute("content", theme === "light" ? "#F5F5F0" : "#0A0A0A");
   }, [theme]);
 
-  if (!authed) return <Login onIn={() => { setAuthed(true); sv(K_AUTH, true); }} />;
+  // Loading state while checking auth
+  if (user === undefined) return (
+    <div style={{ minHeight: "100dvh", background: "#0A0A0A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{CSS}</style>
+      <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Laden...</div>
+    </div>
+  );
+
+  // Not logged in
+  if (!user && !isDemo) return (
+    <Login onIn={(u) => {
+      if (u) { setUser(u); }
+      else { setIsDemo(true); } // demo mode
+    }} />
+  );
 
   const titles = { heute: "Win Friends", lernen: "Lernen", journal: "Journal", settings: "Einstellungen" };
+
+  function handleSignOut() {
+    if (isDemo) {
+      setIsDemo(false);
+      setUser(null);
+    } else {
+      auth.signOut().then(() => { setUser(null); });
+    }
+  }
 
   return (
     <div data-theme={theme} style={{ "--fs": `${st.fontSize}px`, minHeight: "100dvh", background: "var(--bg)" }}>
       <style>{CSS}</style>
       <div style={{ minHeight: "100dvh", color: "var(--text)", fontFamily: "var(--mono)", maxWidth: 480, margin: "0 auto" }}>
-        <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--rule)", position: "sticky", top: 0, zIndex: 50, background: "var(--bg)" }}>
+        <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--rule)", position: "sticky", top: 0, zIndex: 50, background: "var(--bg)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{
             fontFamily: tab === "heute" ? "var(--sans)" : "var(--mono)",
             fontSize: tab === "heute" ? "calc(var(--fs)*1.6)" : "calc(var(--fs)*0.7)",
@@ -662,11 +775,13 @@ function App() {
             textTransform: tab === "heute" ? "none" : "uppercase",
             color: tab === "heute" ? "var(--text)" : "var(--muted)", margin: 0,
           }}>{titles[tab]}</h1>
+          {syncing && <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Sync...</span>}
+          {!syncing && user && !isDemo && <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--c-green)", letterSpacing: "0.08em" }}>●</span>}
         </div>
-        {tab === "heute" && <HeuteTab data={data} setData={setData} />}
-        {tab === "lernen" && <LernenTab data={data} setData={setData} />}
-        {tab === "journal" && <JournalTab data={data} setData={setData} />}
-        {tab === "settings" && <SettingsTab settings={st} setSt={setSt} data={data} setData={setData} onOut={() => { setAuthed(false); sv(K_AUTH, false); }} />}
+        {tab === "heute" && <HeuteTab data={data} setData={setDataSync} />}
+        {tab === "lernen" && <LernenTab data={data} setData={setDataSync} />}
+        {tab === "journal" && <JournalTab data={data} setData={setDataSync} />}
+        {tab === "settings" && <SettingsTab settings={st} setSt={setStSync} data={data} setData={setDataSync} onOut={handleSignOut} />}
         <Nav tab={tab} set={setTab} />
       </div>
     </div>
