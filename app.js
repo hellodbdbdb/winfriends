@@ -1,28 +1,27 @@
 /* Win Friends — App Logic
    React via CDN, no build step, Firebase Auth + Firestore sync
+   Same pattern as ExecComms
    ==================================================================== */
 const { useState, useEffect, useRef, useCallback } = React;
 
-/* ── Firebase refs ── */
-const auth = firebase.auth();
-const db = firebase.firestore();
-const googleProvider = new firebase.auth.GoogleAuthProvider();
+/* ── Firebase — same pattern as ExecComms ── */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBHUzsncbGxERPwNjxEFDNbC1iO0Ekq8Lg",
+  authDomain: "winfriends-be0a2.firebaseapp.com",
+  projectId: "winfriends-be0a2",
+  storageBucket: "winfriends-be0a2.firebasestorage.app",
+  messagingSenderId: "808358754951",
+  appId: "1:808358754951:web:760feac348bd69409e1622"
+};
+const firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+const fbAuth = firebase.auth();
+const fbDb = firebase.firestore();
 
-/* ── localStorage helpers (offline fallback) ── */
+/* ── localStorage helpers (offline / demo fallback) ── */
 const K_DATA = "wf_data";
 const K_SET  = "wf_set";
 function ld(k, f) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : f; } catch { return f; } }
 function sv(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
-
-/* ── Firestore sync helpers ── */
-function userDoc(uid) { return db.collection("users").doc(uid); }
-let _saveTimer = null;
-function debouncedSave(uid, data, settings) {
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => {
-    userDoc(uid).set({ data, settings, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(e => console.warn("Firestore save failed:", e));
-  }, 800);
-}
 
 /* ── Date helpers ── */
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -109,24 +108,12 @@ function Btn({ children, onClick, primary, disabled, style: sx }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    LOGIN
    ═══════════════════════════════════════════════════════════════════════════ */
-function Login({ onIn }) {
+function Login({ onGoogle, onDemo }) {
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-
-  async function googleSignIn() {
-    setBusy(true); setErr(null);
-    try {
-      const result = await auth.signInWithPopup(googleProvider);
-      onIn(result.user);
-    } catch (e) {
-      console.error("Google sign-in failed:", e);
-      setErr("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
-      setBusy(false);
-    }
-  }
-
-  function demoSignIn() {
-    onIn(null); // null = demo mode, localStorage only
+  async function google() {
+    setBusy(true);
+    try { await onGoogle(); } catch(e) { console.error(e); }
+    setBusy(false);
   }
 
   return (
@@ -144,12 +131,11 @@ function Login({ onIn }) {
         <div style={{ width: 48, height: 2, background: "#FFCB47", margin: "20px auto" }} />
         <p style={{ fontFamily: "var(--mono)", fontSize: 11, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>30 Prinzipien &middot; Dale Carnegie</p>
       </div>
-      {err && <div style={{ color: "#FF5C5C", fontSize: 12, fontFamily: "var(--mono)", marginBottom: 16, textAlign: "center", maxWidth: 300 }}>{err}</div>}
-      <button onClick={googleSignIn} disabled={busy} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "#F0F0F0", border: "none", cursor: busy ? "wait" : "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: "#0A0A0A", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.6 : 1 }}>
+      <button onClick={google} disabled={busy} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "#F0F0F0", border: "none", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: "#0A0A0A", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.5 : 1 }}>
         <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-        {busy ? "ANMELDUNG..." : "MIT GOOGLE ANMELDEN"}
+        {busy ? "Anmeldung..." : "Mit Google anmelden"}
       </button>
-      <button onClick={demoSignIn} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "transparent", border: "1px solid #333", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 500, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <button onClick={onDemo} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "transparent", border: "1px solid #333", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 500, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase" }}>
         Demo — ohne Account
       </button>
     </div>
@@ -160,9 +146,16 @@ function Login({ onIn }) {
    HEUTE TAB — Today's principle + daily challenge + reflection
    ═══════════════════════════════════════════════════════════════════════════ */
 function HeuteTab({ data, setData }) {
-  const p = todayPrinciple();
+  const [offset, setOffset] = useState(0);
+  const baseIdx = dayOfYear(today()) % PRINCIPLES.length;
+  const idx = ((baseIdx + offset) % PRINCIPLES.length + PRINCIPLES.length) % PRINCIPLES.length;
+  const p = PRINCIPLES[idx];
   const part = PARTS.find(x => x.id === p.part);
-  const key = today();
+
+  // Build a date key for this offset day (for journal entries)
+  const offsetDate = new Date();
+  offsetDate.setDate(offsetDate.getDate() + offset);
+  const key = offsetDate.toISOString().slice(0, 10);
   const entry = data.daily?.[key] || { done: false, applied: null, reflection: "" };
 
   function upd(field, val) {
@@ -207,9 +200,25 @@ function HeuteTab({ data, setData }) {
         ))}
       </div>
 
-      {/* Today's principle */}
+      {/* Principle nav */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button onClick={() => setOffset(offset - 1)} style={{ background: "none", border: "1px solid var(--rule)", color: "var(--soft)", cursor: "pointer", padding: "6px 12px", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1 }}>&larr;</button>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+            {offset === 0 ? "Heutiges Prinzip" : offset > 0 ? `In ${offset} Tag${offset > 1 ? "en" : ""}` : `Vor ${Math.abs(offset)} Tag${Math.abs(offset) > 1 ? "en" : ""}`}
+          </div>
+          <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)" }}>{key}</div>
+        </div>
+        <button onClick={() => setOffset(offset + 1)} style={{ background: "none", border: "1px solid var(--rule)", color: "var(--soft)", cursor: "pointer", padding: "6px 12px", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1 }}>&rarr;</button>
+      </div>
+
+      {offset !== 0 && (
+        <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <button onClick={() => setOffset(0)} style={{ background: "none", border: "none", color: "var(--c-p2)", cursor: "pointer", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.65)", letterSpacing: "0.06em", textDecoration: "underline" }}>Zur\u00fcck zu heute</button>
+        </div>
+      )}
+
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Heutiges Prinzip</div>
         <PartTag part={p.part} />
         <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.65)", color: "var(--muted)", marginTop: 8 }}>{part.title} &middot; Prinzip {p.num}</div>
       </div>
@@ -218,7 +227,7 @@ function HeuteTab({ data, setData }) {
         {p.titleDe}
       </h1>
       <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", color: "var(--muted)", fontStyle: "italic", marginBottom: 20 }}>
-        „{p.title}"
+        \u201E{p.title}\u201C
       </div>
 
       <Rule />
@@ -662,105 +671,163 @@ function Nav({ tab, set }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   APP — Firebase Auth + Firestore sync
+   APP — Firebase Auth + Firestore sync (same pattern as ExecComms)
    ═══════════════════════════════════════════════════════════════════════════ */
 function App() {
-  const [user, setUser] = useState(undefined); // undefined=loading, null=not authed, object=authed
-  const [isDemo, setIsDemo] = useState(false);
+  const [user, setUser] = useState(null);         // Firebase user or {demo:true}
+  const [loading, setLoading] = useState(true);    // waiting for auth check
   const [data, setData] = useState(() => ld(K_DATA, {}));
   const [st, setSt] = useState(() => ld(K_SET, { mode: "dark", fontSize: 15 }));
   const [tab, setTab] = useState("heute");
-  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("ok"); // ok | saving | error
+  const saveTimer = useRef(null);
+  const unsubSnap = useRef(null);
+  const userRef = useRef(null);
 
-  // Listen to Firebase auth state
-  useEffect(() => {
-    const unsub = auth.onAuthStateChanged(u => {
-      setUser(u || null);
-      if (u) setIsDemo(false);
+  // Keep userRef in sync
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  // --- Firestore doc ref ---
+  function userDocRef(u) {
+    const uid = u ? u.uid : (userRef.current ? userRef.current.uid : null);
+    return fbDb.collection("winfriends-users").doc(uid);
+  }
+
+  // --- Save to Firestore (debounced) ---
+  async function saveToFirestore(d, s) {
+    const u = userRef.current;
+    if (!u || u.demo) { console.log('[SYNC] skip: no user or demo'); return; }
+    console.log('[SYNC] saving to Firestore…', u.uid);
+    setSyncStatus('saving');
+    try {
+      await userDocRef(u).set({
+        appData: d,
+        settings: s,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      console.log('[SYNC] saved OK');
+      setSyncStatus('ok');
+    } catch(e) {
+      console.error('[SYNC] save FAILED:', e);
+      setSyncStatus('error');
+    }
+  }
+
+  function persistData(d) {
+    setData(d);
+    const u = userRef.current;
+    if (u && u.demo) {
+      sv(K_DATA, d);
+    } else if (u) {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => saveToFirestore(d, st), 800);
+    }
+  }
+
+  function persistSettings(s) {
+    setSt(s);
+    const u = userRef.current;
+    if (u && u.demo) {
+      sv(K_SET, s);
+    } else if (u) {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => saveToFirestore(data, s), 800);
+    }
+  }
+
+  // --- Listen to Firestore (real-time sync) ---
+  function listenToFirestore() {
+    if (unsubSnap.current) unsubSnap.current();
+    const u = userRef.current;
+    if (!u || u.demo) return;
+    console.log('[SYNC] listening to Firestore for', u.uid);
+    unsubSnap.current = userDocRef(u).onSnapshot((snap) => {
+      console.log('[SYNC] snapshot received, exists:', snap.exists);
+      if (snap.exists) {
+        const d = snap.data();
+        if (d.appData) setData(d.appData);
+        if (d.settings) setSt(d.settings);
+        setSyncStatus('ok');
+      }
+    }, (err) => {
+      console.error('[SYNC] snapshot error:', err);
+      setSyncStatus('error');
     });
-    return unsub;
+  }
+
+  // --- Boot: auth listener ---
+  useEffect(() => {
+    const unsub = fbAuth.onAuthStateChanged((u) => {
+      if (u) {
+        setUser(u);
+        setLoading(false);
+      } else {
+        setUser(null);
+        setLoading(false);
+        if (unsubSnap.current) unsubSnap.current();
+      }
+    });
+    return () => { unsub(); if (unsubSnap.current) unsubSnap.current(); };
   }, []);
 
-  // Load data from Firestore when user signs in
+  // --- Start Firestore listener when user logs in ---
   useEffect(() => {
-    if (!user || isDemo) return;
-    setSyncing(true);
-    userDoc(user.uid).get().then(doc => {
-      if (doc.exists) {
-        const remote = doc.data();
-        // Merge: remote wins (it's the cloud truth)
-        if (remote.data) { setData(remote.data); sv(K_DATA, remote.data); }
-        if (remote.settings) { setSt(remote.settings); sv(K_SET, remote.settings); }
-      } else {
-        // First time: push local data to Firestore
-        const localData = ld(K_DATA, {});
-        const localSt = ld(K_SET, { mode: "dark", fontSize: 15 });
-        userDoc(user.uid).set({ data: localData, settings: localSt, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-      }
-      setSyncing(false);
-    }).catch(e => { console.warn("Firestore load failed:", e); setSyncing(false); });
+    if (user && !user.demo) {
+      listenToFirestore();
+    }
+  }, [user]);
 
-    // Real-time listener for cross-device sync
-    const unsub = userDoc(user.uid).onSnapshot(doc => {
-      if (doc.exists && doc.metadata.hasPendingWrites === false) {
-        const remote = doc.data();
-        if (remote.data) { setData(remote.data); sv(K_DATA, remote.data); }
-        if (remote.settings) { setSt(remote.settings); sv(K_SET, remote.settings); }
-      }
-    });
-    return unsub;
-  }, [user, isDemo]);
+  // --- Google sign-in ---
+  async function handleGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+      await fbAuth.signInWithPopup(provider);
+    } catch(e) {
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+        await fbAuth.signInWithRedirect(provider);
+      } else { throw e; }
+    }
+  }
 
-  // Wrapped setters that sync to both localStorage and Firestore
-  const setDataSync = useCallback((newData) => {
-    const d = typeof newData === "function" ? newData(data) : newData;
-    setData(d);
-    sv(K_DATA, d);
-    if (user && !isDemo) debouncedSave(user.uid, d, st);
-  }, [user, isDemo, data, st]);
+  // --- Demo mode ---
+  function handleDemo() {
+    const saved = ld(K_DATA, {});
+    setUser({ demo: true, uid: 'demo', displayName: 'Demo' });
+    setData(saved);
+    setLoading(false);
+  }
 
-  const setStSync = useCallback((newSt) => {
-    const s = typeof newSt === "function" ? newSt(st) : newSt;
-    setSt(s);
-    sv(K_SET, s);
-    if (user && !isDemo) debouncedSave(user.uid, data, s);
-  }, [user, isDemo, data, st]);
+  // --- Sign out ---
+  function handleSignOut() {
+    if (unsubSnap.current) unsubSnap.current();
+    if (user && !user.demo) {
+      fbAuth.signOut();
+    }
+    setUser(null);
+    setData({});
+    setSyncStatus('ok');
+  }
 
+  // --- Sync body background + meta theme-color ---
   const theme = st.mode || "dark";
-
-  // Sync body background + meta theme-color so no dark edges on mobile
   useEffect(() => {
     document.body.className = "theme-" + theme;
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", theme === "light" ? "#F5F5F0" : "#0A0A0A");
   }, [theme]);
 
-  // Loading state while checking auth
-  if (user === undefined) return (
+  // --- Loading screen ---
+  if (loading) return (
     <div style={{ minHeight: "100dvh", background: "#0A0A0A", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{CSS}</style>
       <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>Laden...</div>
     </div>
   );
 
-  // Not logged in
-  if (!user && !isDemo) return (
-    <Login onIn={(u) => {
-      if (u) { setUser(u); }
-      else { setIsDemo(true); } // demo mode
-    }} />
-  );
+  // --- Login screen ---
+  if (!user) return <Login onGoogle={handleGoogle} onDemo={handleDemo} />;
 
   const titles = { heute: "Win Friends", lernen: "Lernen", journal: "Journal", settings: "Einstellungen" };
-
-  function handleSignOut() {
-    if (isDemo) {
-      setIsDemo(false);
-      setUser(null);
-    } else {
-      auth.signOut().then(() => { setUser(null); });
-    }
-  }
 
   return (
     <div data-theme={theme} style={{ "--fs": `${st.fontSize}px`, minHeight: "100dvh", background: "var(--bg)" }}>
@@ -775,13 +842,12 @@ function App() {
             textTransform: tab === "heute" ? "none" : "uppercase",
             color: tab === "heute" ? "var(--text)" : "var(--muted)", margin: 0,
           }}>{titles[tab]}</h1>
-          {syncing && <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Sync...</span>}
-          {!syncing && user && !isDemo && <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--c-green)", letterSpacing: "0.08em" }}>●</span>}
+          {!user.demo && <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", letterSpacing: "0.06em", textTransform: "uppercase", color: syncStatus === 'saving' ? "var(--muted)" : syncStatus === 'error' ? "var(--c-red)" : "var(--muted)", opacity: syncStatus === 'ok' ? 0.4 : 1, transition: "opacity 0.3s" }}>{syncStatus === 'ok' ? 'Synced' : syncStatus === 'saving' ? 'Saving...' : 'Error!'}</span>}
         </div>
-        {tab === "heute" && <HeuteTab data={data} setData={setDataSync} />}
-        {tab === "lernen" && <LernenTab data={data} setData={setDataSync} />}
-        {tab === "journal" && <JournalTab data={data} setData={setDataSync} />}
-        {tab === "settings" && <SettingsTab settings={st} setSt={setStSync} data={data} setData={setDataSync} onOut={handleSignOut} />}
+        {tab === "heute" && <HeuteTab data={data} setData={persistData} />}
+        {tab === "lernen" && <LernenTab data={data} setData={persistData} />}
+        {tab === "journal" && <JournalTab data={data} setData={persistData} />}
+        {tab === "settings" && <SettingsTab settings={st} setSt={persistSettings} data={data} setData={persistData} onOut={handleSignOut} />}
         <Nav tab={tab} set={setTab} />
       </div>
     </div>
