@@ -96,7 +96,7 @@ function Btn({ children, onClick, primary, disabled, style: sx }) {
     <button onClick={onClick} disabled={disabled} style={{
       width: "100%", padding: "14px 0", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)",
       fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", cursor: disabled ? "default" : "pointer",
-      borderRadius: 0, transition: "all 0.15s", opacity: disabled ? 0.4 : 1,
+      borderRadius: 12, transition: "all 0.15s", opacity: disabled ? 0.4 : 1,
       background: primary ? "var(--text)" : "transparent",
       border: primary ? "2px solid var(--text)" : "2px solid var(--c-red)",
       color: primary ? "var(--bg)" : "var(--c-red)", ...sx,
@@ -119,15 +119,15 @@ function Login({ onGoogle, onDemo }) {
     <div style={{ minHeight: "100dvh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
       <style>{CSS}</style>
       {/* Red frame border */}
-      <div style={{ border: "3px solid var(--c-red)", padding: "48px 36px", maxWidth: 340, width: "100%", textAlign: "center" }}>
+      <div style={{ border: "3px solid var(--c-red)", borderRadius: 20, padding: "48px 36px", maxWidth: 340, width: "100%", textAlign: "center" }}>
         <h1 style={{ fontFamily: "var(--sans)", fontSize: 52, fontWeight: 900, letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 12, color: "var(--text)" }}>Win<br />Friends</h1>
         <div style={{ width: 48, height: 3, background: "var(--c-red)", margin: "20px auto" }} />
         <p style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 36 }}>30 Prinzipien &middot; Dale Carnegie</p>
-        <button onClick={google} disabled={busy} style={{ width: "100%", padding: "14px 20px", borderRadius: 0, background: "var(--text)", border: "none", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--bg)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.5 : 1 }}>
+        <button onClick={google} disabled={busy} style={{ width: "100%", padding: "14px 20px", borderRadius: 12, background: "var(--text)", border: "none", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--bg)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.5 : 1 }}>
           <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
           {busy ? "Anmeldung..." : "Mit Google anmelden"}
         </button>
-        <button onClick={onDemo} style={{ width: "100%", padding: "14px 20px", borderRadius: 0, background: "transparent", border: "2px solid var(--c-red)", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--c-red)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <button onClick={onDemo} style={{ width: "100%", padding: "14px 20px", borderRadius: 12, background: "transparent", border: "2px solid var(--c-red)", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--c-red)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           Demo — ohne Account
         </button>
       </div>
@@ -198,7 +198,7 @@ function HeuteTab({ data, setData }) {
 
       {/* Progress bar */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ height: 3, background: "var(--rule)", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: 3, background: "var(--rule)", borderRadius: 12, overflow: "hidden" }}>
           <div style={{ width: `${(completedCount / PRINCIPLES.length) * 100}%`, height: "100%", background: "var(--c-green)", transition: "width 0.4s" }} />
         </div>
         <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)", marginTop: 6, textAlign: "center" }}>
@@ -266,7 +266,7 @@ function HeuteTab({ data, setData }) {
                 border: `1px solid ${entry.applied === o.v ? o.ac : "var(--rule)"}`,
                 background: entry.applied === o.v ? o.abg : "transparent",
                 color: entry.applied === o.v ? "var(--bg)" : "var(--muted)",
-                borderRadius: i === 0 ? "2px 0 0 2px" : i === 2 ? "0 2px 2px 0" : "0",
+                borderRadius: i === 0 ? "12px 0 0 12px" : i === 2 ? "0 12px 12px 0" : "0",
               }}>{o.l}</button>
             ))}
           </div>
@@ -277,7 +277,7 @@ function HeuteTab({ data, setData }) {
           <label style={{ display: "block", fontSize: "calc(var(--fs)*0.7)", color: "var(--soft)", marginBottom: 8 }}>Was ist passiert?</label>
           <textarea value={entry.reflection || ""} onChange={e => upd("reflection", e.target.value)} placeholder="Wie hast du das Prinzip angewendet? Was hast du beobachtet?" rows={5} style={{
             width: "100%", padding: "12px", fontSize: "calc(var(--fs)*0.85)", fontFamily: "var(--body)", lineHeight: 1.7,
-            background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 2, resize: "vertical",
+            background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 12, resize: "vertical",
           }} />
         </div>
 
@@ -337,7 +337,7 @@ function LernenTab({ data, setData }) {
         {/* Card */}
         <div onClick={() => setFlipped(!flipped)} style={{
           marginTop: 24, padding: 28, minHeight: 280, cursor: "pointer",
-          border: "1px solid var(--rule)", borderRadius: 0, background: "var(--card)",
+          border: "1px solid var(--rule)", borderRadius: 16, background: "var(--card)",
           display: "flex", flexDirection: "column", justifyContent: "center",
           borderLeft: `3px solid ${PC[shuffled[quizIdx].part]}`,
         }}>
@@ -364,11 +364,11 @@ function LernenTab({ data, setData }) {
           <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
             <button onClick={() => rateQuiz("practice")} style={{
               flex: 1, padding: "14px 0", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", fontWeight: 500,
-              background: "transparent", border: "1px solid var(--c-red)", color: "var(--c-red)", cursor: "pointer", borderRadius: 2,
+              background: "transparent", border: "1px solid var(--c-red)", color: "var(--c-red)", cursor: "pointer", borderRadius: 12,
             }}>Muss ich üben</button>
             <button onClick={() => rateQuiz("know")} style={{
               flex: 1, padding: "14px 0", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", fontWeight: 500,
-              background: "var(--c-green)", border: "1px solid var(--c-green)", color: "var(--bg)", cursor: "pointer", borderRadius: 2,
+              background: "var(--c-green)", border: "1px solid var(--c-green)", color: "var(--bg)", cursor: "pointer", borderRadius: 12,
             }}>Kenne ich</button>
           </div>
         )}
@@ -480,7 +480,7 @@ function JournalTab({ data, setData }) {
             <label style={{ display: "block", fontSize: "calc(var(--fs)*0.7)", color: "var(--soft)", marginBottom: 6 }}>Prinzip</label>
             <select value={newPid} onChange={e => setNewPid(e.target.value)} style={{
               width: "100%", padding: "10px 12px", fontSize: "calc(var(--fs)*0.8)", fontFamily: "var(--mono)",
-              background: "var(--bg)", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 2,
+              background: "var(--bg)", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 12,
             }}>
               {PRINCIPLES.map(p => <option key={p.id} value={p.id}>{p.num}. {p.titleDe} (Teil {p.part})</option>)}
             </select>
@@ -490,7 +490,7 @@ function JournalTab({ data, setData }) {
             <label style={{ display: "block", fontSize: "calc(var(--fs)*0.7)", color: "var(--soft)", marginBottom: 6 }}>Datum</label>
             <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{
               width: "100%", padding: "10px 12px", fontSize: "calc(var(--fs)*0.8)", fontFamily: "var(--mono)",
-              background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 2,
+              background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 12,
             }} />
           </div>
 
@@ -498,7 +498,7 @@ function JournalTab({ data, setData }) {
             <label style={{ display: "block", fontSize: "calc(var(--fs)*0.7)", color: "var(--soft)", marginBottom: 6 }}>Was ist passiert?</label>
             <textarea value={newText} onChange={e => setNewText(e.target.value)} placeholder="Beschreibe die Situation und was du gelernt hast…" rows={4} style={{
               width: "100%", padding: "12px", fontSize: "calc(var(--fs)*0.85)", fontFamily: "var(--body)", lineHeight: 1.7,
-              background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 2, resize: "vertical",
+              background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", borderRadius: 12, resize: "vertical",
             }} />
           </div>
 
@@ -597,7 +597,7 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
               border: `1px solid ${st.mode === o.v ? "var(--accent)" : "var(--rule)"}`,
               background: st.mode === o.v ? "var(--accent)" : "transparent",
               color: st.mode === o.v ? "var(--bg)" : "var(--muted)",
-              borderRadius: i === 0 ? "2px 0 0 2px" : "0 2px 2px 0",
+              borderRadius: i === 0 ? "12px 0 0 12px" : "0 12px 12px 0",
             }}>{o.l}</button>
           ))}
         </div>
@@ -617,11 +617,11 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <button onClick={() => { const b = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "win-friends.json"; a.click(); }} style={{
           flex: 1, padding: "12px", fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500,
-          background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", cursor: "pointer", borderRadius: 2,
+          background: "transparent", border: "1px solid var(--rule)", color: "var(--text)", cursor: "pointer", borderRadius: 12,
         }}>Export</button>
         <label style={{
           flex: 1, padding: "12px", fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500, textAlign: "center",
-          background: "transparent", border: "1px solid var(--rule)", color: "var(--soft)", cursor: "pointer", borderRadius: 2,
+          background: "transparent", border: "1px solid var(--rule)", color: "var(--soft)", cursor: "pointer", borderRadius: 12,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           Import
@@ -630,14 +630,14 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
       </div>
       <button onClick={() => { if (confirm("Alle Daten löschen?")) { setData({}); } }} style={{
         width: "100%", padding: "12px", fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500,
-        background: "transparent", border: "1px solid var(--c-p3)", color: "var(--c-p3)", cursor: "pointer", borderRadius: 2,
+        background: "transparent", border: "1px solid var(--c-p3)", color: "var(--c-p3)", cursor: "pointer", borderRadius: 12,
       }}>Reset</button>
 
       <div style={{ height: 24 }} />
       <Rule />
       <button onClick={onOut} style={{
         width: "100%", padding: "12px", marginTop: 24, fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500,
-        background: "transparent", border: "1px solid var(--rule)", color: "var(--muted)", cursor: "pointer", borderRadius: 2,
+        background: "transparent", border: "1px solid var(--rule)", color: "var(--muted)", cursor: "pointer", borderRadius: 12,
       }}>Abmelden</button>
     </div>
   );
