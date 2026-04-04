@@ -25,45 +25,44 @@ function sv(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
 
 /* ── Date helpers ── */
 function today() { return new Date().toISOString().slice(0, 10); }
-function dayOfYear(d) { const s = new Date(d); const y = new Date(s.getFullYear(), 0, 0); return Math.floor((s - y) / 86400000); }
 
-/* ── Get today's principle (rotates through all 30) ── */
-function todayPrinciple() {
-  const idx = dayOfYear(today()) % PRINCIPLES.length;
-  return PRINCIPLES[idx];
+/* ── Get current principle based on progress ── */
+function currentPrincipleIdx(data) {
+  return Math.min(data.currentPrincipleIdx || 0, PRINCIPLES.length - 1);
 }
 
 /* ── CSS Design System (injected) — Vibrant dark UI ── */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:wght@300;400;500;600&display=swap');
 :root {
-  --bg: #0A0A0A; --card: #151515; --text: #F0F0F0; --soft: #CDCDCD;
-  --muted: #666; --rule: #222; --accent: #F0F0F0;
-  --c-p1: #FFCB47; --c-p2: #73D4F2; --c-p3: #FF6BAA; --c-p4: #8BDB5E;
-  --c-red: #FF5C5C; --c-red-bg: rgba(255,92,92,0.1);
-  --c-green: #8BDB5E; --c-green-bg: rgba(139,219,94,0.1);
-  --c-orange: #FF8C42;
-  --sans: 'DM Sans', 'Helvetica Neue', sans-serif;
-  --body: 'Inter', 'DM Sans', 'Helvetica Neue', sans-serif;
+  --bg: #F5F0E6; --card: #FAF7F0; --text: #1E3A6E; --soft: #2B4C8C;
+  --muted: #7A8DB0; --rule: #C8BFA8; --accent: #1E3A6E;
+  --c-p1: #1E3A6E; --c-p2: #2B5EA7; --c-p3: #C0392B; --c-p4: #1E3A6E;
+  --c-red: #C0392B; --c-red-bg: rgba(192,57,43,0.08);
+  --c-green: #1E3A6E; --c-green-bg: rgba(30,58,110,0.08);
+  --c-orange: #C0392B;
+  --sans: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --mono: 'IBM Plex Mono', 'Menlo', monospace;
+  --frame: #C0392B;
   --nav-h: 56px; --fs: 15px;
 }
 [data-theme="light"] {
-  --bg: #F5F5F0; --card: #FFFFFF; --text: #111; --soft: #333;
-  --muted: #999; --rule: #DDD; --accent: #111;
-  --c-p1: #D4A017; --c-p2: #1A8FB5; --c-p3: #D4447A; --c-p4: #4CAF50;
-  --c-red: #D44; --c-red-bg: rgba(204,68,68,0.08);
-  --c-green: #4CAF50; --c-green-bg: rgba(76,175,80,0.08);
-  --c-orange: #E07020;
+  --bg: #F5F0E6; --card: #FAF7F0; --text: #1E3A6E; --soft: #2B4C8C;
+  --muted: #7A8DB0; --rule: #C8BFA8; --accent: #1E3A6E;
+  --c-p1: #1E3A6E; --c-p2: #2B5EA7; --c-p3: #C0392B; --c-p4: #1E3A6E;
+  --c-red: #C0392B; --c-red-bg: rgba(192,57,43,0.08);
+  --c-green: #1E3A6E; --c-green-bg: rgba(30,58,110,0.08);
+  --c-orange: #C0392B;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body { min-height:100%; }
-body { background:var(--bg); color:var(--text); font-family:var(--mono); font-size:var(--fs); -webkit-font-smoothing:antialiased; }
-body.theme-light { background:#F5F5F0; }
-body.theme-dark { background:#0A0A0A; }
+body { background:var(--bg); color:var(--text); font-family:var(--body); font-size:var(--fs); -webkit-font-smoothing:antialiased; }
+body.theme-light { background:#F5F0E6; }
+body.theme-dark { background:#F5F0E6; }
 `;
 
-const PC = { 1: "var(--c-p1)", 2: "var(--c-p2)", 3: "var(--c-p3)", 4: "var(--c-p4)" };
+const PC = { 1: "var(--c-p1)", 2: "var(--c-p2)", 3: "var(--c-p1)", 4: "var(--c-p2)" };
 
 /* ── Render multiline text with paragraph breaks ── */
 function Paragraphs({ text, style }) {
@@ -98,9 +97,9 @@ function Btn({ children, onClick, primary, disabled, style: sx }) {
       width: "100%", padding: "14px 0", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)",
       fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", cursor: disabled ? "default" : "pointer",
       borderRadius: 0, transition: "all 0.15s", opacity: disabled ? 0.4 : 1,
-      background: primary ? "var(--c-green)" : "transparent",
-      border: primary ? "1px solid var(--c-green)" : "1px solid var(--rule)",
-      color: primary ? "#0A0A0A" : "var(--soft)", ...sx,
+      background: primary ? "var(--text)" : "transparent",
+      border: primary ? "2px solid var(--text)" : "2px solid var(--c-red)",
+      color: primary ? "var(--bg)" : "var(--c-red)", ...sx,
     }}>{children}</button>
   );
 }
@@ -117,82 +116,79 @@ function Login({ onGoogle, onDemo }) {
   }
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, fontFamily: "var(--mono)" }}>
+    <div style={{ minHeight: "100dvh", background: "#F5F0E6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
       <style>{CSS}</style>
-      {/* Decorative dots */}
-      <div style={{ position: "absolute", top: 40, left: 30, display: "flex", gap: 6 }}>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#FFCB47" }} />
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#FF6BAA" }} />
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#73D4F2" }} />
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#8BDB5E" }} />
+      {/* Red frame border */}
+      <div style={{ border: "3px solid #C0392B", padding: "48px 36px", maxWidth: 340, width: "100%", textAlign: "center" }}>
+        <h1 style={{ fontFamily: "var(--sans)", fontSize: 52, fontWeight: 900, letterSpacing: "-0.02em", lineHeight: 1, marginBottom: 12, color: "#1E3A6E" }}>Win<br />Friends</h1>
+        <div style={{ width: 48, height: 3, background: "#C0392B", margin: "20px auto" }} />
+        <p style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#7A8DB0", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 36 }}>30 Prinzipien &middot; Dale Carnegie</p>
+        <button onClick={google} disabled={busy} style={{ width: "100%", padding: "14px 20px", borderRadius: 0, background: "#1E3A6E", border: "none", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "#F5F0E6", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.5 : 1 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
+          {busy ? "Anmeldung..." : "Mit Google anmelden"}
+        </button>
+        <button onClick={onDemo} style={{ width: "100%", padding: "14px 20px", borderRadius: 0, background: "transparent", border: "2px solid #C0392B", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "#C0392B", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Demo — ohne Account
+        </button>
       </div>
-      <div style={{ marginBottom: 48, textAlign: "center" }}>
-        <h1 style={{ fontFamily: "var(--sans)", fontSize: 56, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: 8, color: "#F0F0F0" }}>Win<br />Friends</h1>
-        <div style={{ width: 48, height: 2, background: "#FFCB47", margin: "20px auto" }} />
-        <p style={{ fontFamily: "var(--mono)", fontSize: 11, color: "#555", letterSpacing: "0.1em", textTransform: "uppercase" }}>30 Prinzipien &middot; Dale Carnegie</p>
-      </div>
-      <button onClick={google} disabled={busy} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "#F0F0F0", border: "none", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: "#0A0A0A", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: busy ? 0.5 : 1 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-        {busy ? "Anmeldung..." : "Mit Google anmelden"}
-      </button>
-      <button onClick={onDemo} style={{ width: "100%", maxWidth: 300, padding: "14px 20px", borderRadius: 0, background: "transparent", border: "1px solid #333", cursor: "pointer", fontFamily: "var(--mono)", fontSize: 12, fontWeight: 500, color: "#555", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-        Demo — ohne Account
-      </button>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HEUTE TAB — Today's principle + daily challenge + reflection
+   HEUTE TAB — Current principle based on user progress
    ═══════════════════════════════════════════════════════════════════════════ */
 function HeuteTab({ data, setData }) {
-  const [offset, setOffset] = useState(0);
-  const baseIdx = dayOfYear(today()) % PRINCIPLES.length;
-  const idx = ((baseIdx + offset) % PRINCIPLES.length + PRINCIPLES.length) % PRINCIPLES.length;
-  const p = PRINCIPLES[idx];
+  const myIdx = currentPrincipleIdx(data);
+  const [viewIdx, setViewIdx] = useState(myIdx);
+
+  // Keep viewIdx in sync when progress advances
+  useEffect(() => { setViewIdx(myIdx); }, [myIdx]);
+
+  const p = PRINCIPLES[viewIdx];
   const part = PARTS.find(x => x.id === p.part);
 
-  // Build a date key for this offset day (for journal entries)
-  const offsetDate = new Date();
-  offsetDate.setDate(offsetDate.getDate() + offset);
-  const key = offsetDate.toISOString().slice(0, 10);
-  const entry = data.daily?.[key] || { done: false, applied: null, reflection: "" };
+  // Entry keyed by principle ID
+  const key = `p${p.id}`;
+  const entry = data.progress?.[key] || { done: false, applied: null, reflection: "" };
 
   function upd(field, val) {
-    const n = { ...data, daily: { ...data.daily, [key]: { ...entry, [field]: val } } };
+    const newEntry = { ...entry, [field]: val };
+    // When completing: also store date of completion
+    if (field === "done" && val === true) newEntry.completedAt = today();
+    let n = { ...data, progress: { ...data.progress, [key]: newEntry } };
+    // When marking done: advance currentPrincipleIdx past all consecutive completed lessons
+    if (field === "done" && val === true) {
+      let next = myIdx;
+      while (next < PRINCIPLES.length - 1) {
+        const k = `p${PRINCIPLES[next].id}`;
+        const e = (k === key) ? newEntry : (data.progress?.[k] || {});
+        if (!e.done) break;
+        next++;
+      }
+      n.currentPrincipleIdx = next;
+    }
+    // When un-marking done: move currentPrincipleIdx back if needed
+    if (field === "done" && val === false && viewIdx < myIdx) {
+      n.currentPrincipleIdx = viewIdx;
+    }
     setData(n);
   }
 
-  // Streak calculation
-  let streak = 0;
-  const d = new Date();
-  for (let i = 0; i < 365; i++) {
-    const dk = new Date(d); dk.setDate(dk.getDate() - i);
-    const k = dk.toISOString().slice(0, 10);
-    if (data.daily?.[k]?.done) streak++;
-    else if (i > 0) break; // allow today to not be done yet
-    else continue;
-  }
+  // Completed count
+  const completedCount = Object.values(data.progress || {}).filter(e => e.done).length;
 
-  // Total days practiced
-  const totalDays = Object.values(data.daily || {}).filter(e => e.done).length;
-  // Unique principles practiced
-  const practiced = new Set();
-  Object.entries(data.daily || {}).forEach(([k, v]) => {
-    if (v.done) {
-      const idx = dayOfYear(k) % PRINCIPLES.length;
-      practiced.add(PRINCIPLES[idx].id);
-    }
-  });
+  const canGoPrev = viewIdx > 0;
+  const canGoNext = viewIdx < PRINCIPLES.length - 1; // freely browse all lessons
 
   return (
     <div style={{ padding: "24px 20px 120px" }}>
       {/* Stats strip */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0, borderBottom: "1px solid var(--rule)", marginBottom: 24 }}>
         {[
-          { n: streak, l: "Streak" },
-          { n: totalDays, l: "Tage" },
-          { n: practiced.size + "/30", l: "Geübt" },
+          { n: completedCount, l: "Erledigt" },
+          { n: (PRINCIPLES.length - completedCount), l: "Offen" },
+          { n: completedCount + "/30", l: "Fortschritt" },
         ].map((x, i) => (
           <div key={i} style={{ padding: "16px 0", textAlign: "center", borderRight: i < 2 ? "1px solid var(--rule)" : "none" }}>
             <Num n={x.n} label={x.l} />
@@ -200,21 +196,30 @@ function HeuteTab({ data, setData }) {
         ))}
       </div>
 
-      {/* Principle nav */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <button onClick={() => setOffset(offset - 1)} style={{ background: "none", border: "1px solid var(--rule)", color: "var(--soft)", cursor: "pointer", padding: "6px 12px", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1 }}>&larr;</button>
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
-            {offset === 0 ? "Heutiges Prinzip" : offset > 0 ? `In ${offset} Tag${offset > 1 ? "en" : ""}` : `Vor ${Math.abs(offset)} Tag${Math.abs(offset) > 1 ? "en" : ""}`}
-          </div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)" }}>{key}</div>
+      {/* Progress bar */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ height: 3, background: "var(--rule)", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ width: `${(completedCount / PRINCIPLES.length) * 100}%`, height: "100%", background: "var(--c-green)", transition: "width 0.4s" }} />
         </div>
-        <button onClick={() => setOffset(offset + 1)} style={{ background: "none", border: "1px solid var(--rule)", color: "var(--soft)", cursor: "pointer", padding: "6px 12px", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1 }}>&rarr;</button>
+        <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)", marginTop: 6, textAlign: "center" }}>
+          {completedCount === PRINCIPLES.length ? "Alle 30 Prinzipien abgeschlossen!" : `Lektion ${viewIdx + 1} von ${PRINCIPLES.length}`}
+        </div>
       </div>
 
-      {offset !== 0 && (
+      {/* Principle nav */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button onClick={() => canGoPrev && setViewIdx(viewIdx - 1)} disabled={!canGoPrev} style={{ background: "none", border: "1px solid var(--rule)", color: canGoPrev ? "var(--soft)" : "var(--rule)", cursor: canGoPrev ? "pointer" : "default", padding: "6px 12px", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1, opacity: canGoPrev ? 1 : 0.3 }}>&larr;</button>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: viewIdx === myIdx ? "var(--c-green)" : "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+            {viewIdx === myIdx ? "Aktuelle Lektion" : entry.done ? "Abgeschlossen \u2713" : `Lektion ${viewIdx + 1} von ${PRINCIPLES.length}`}
+          </div>
+        </div>
+        <button onClick={() => canGoNext && setViewIdx(viewIdx + 1)} disabled={!canGoNext} style={{ background: "none", border: "1px solid var(--rule)", color: canGoNext ? "var(--soft)" : "var(--rule)", cursor: canGoNext ? "pointer" : "default", padding: "6px 12px", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1, opacity: canGoNext ? 1 : 0.3 }}>&rarr;</button>
+      </div>
+
+      {viewIdx !== myIdx && (
         <div style={{ textAlign: "center", marginBottom: 12 }}>
-          <button onClick={() => setOffset(0)} style={{ background: "none", border: "none", color: "var(--c-p2)", cursor: "pointer", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.65)", letterSpacing: "0.06em", textDecoration: "underline" }}>Zur\u00fcck zu heute</button>
+          <button onClick={() => setViewIdx(myIdx)} style={{ background: "none", border: "none", color: "var(--c-p2)", cursor: "pointer", fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.65)", letterSpacing: "0.06em", textDecoration: "underline" }}>Zur aktuellen Lektion</button>
         </div>
       )}
 
@@ -226,10 +231,6 @@ function HeuteTab({ data, setData }) {
       <h1 style={{ fontFamily: "var(--sans)", fontSize: "calc(var(--fs)*1.8)", fontWeight: 900, lineHeight: 1.2, letterSpacing: "-0.02em", margin: "16px 0", color: "var(--text)" }}>
         {p.titleDe}
       </h1>
-      <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", color: "var(--muted)", fontStyle: "italic", marginBottom: 20 }}>
-        \u201E{p.title}\u201C
-      </div>
-
       <Rule />
 
       {/* Description from book */}
@@ -237,9 +238,9 @@ function HeuteTab({ data, setData }) {
 
       <Rule />
 
-      {/* Daily challenge */}
+      {/* Challenge */}
       <div style={{ padding: "20px 0" }}>
-        <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: PC[p.part], letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Tagesaufgabe</div>
+        <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: PC[p.part], letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12 }}>Aufgabe</div>
         <div style={{ fontFamily: "var(--body)", fontSize: "calc(var(--fs)*0.95)", lineHeight: 1.8, color: "var(--text)", fontWeight: 400 }}>
           {p.challenge}
         </div>
@@ -253,7 +254,7 @@ function HeuteTab({ data, setData }) {
 
         {/* Applied? */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", fontSize: "calc(var(--fs)*0.7)", color: "var(--soft)", marginBottom: 8 }}>Heute angewendet?</label>
+          <label style={{ display: "block", fontSize: "calc(var(--fs)*0.7)", color: "var(--soft)", marginBottom: 8 }}>Angewendet?</label>
           <div style={{ display: "flex", gap: 1 }}>
             {[
               { v: "yes", l: "Ja", ac: "var(--c-green)", abg: "var(--c-green)" },
@@ -282,7 +283,7 @@ function HeuteTab({ data, setData }) {
 
         {/* Complete button */}
         <Btn primary={!entry.done} onClick={() => upd("done", !entry.done)}>
-          {entry.done ? "Erledigt ✓" : "Tag abschließen"}
+          {entry.done ? "Erledigt \u2713" : "Lektion abschlie\u00dfen & weiter"}
         </Btn>
       </div>
     </div>
@@ -351,7 +352,7 @@ function LernenTab({ data, setData }) {
             </div>
           ) : (
             <div>
-              <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", color: "var(--muted)", fontStyle: "italic", marginBottom: 16 }}>„{p.title}"</div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", color: "var(--muted)", fontStyle: "italic", marginBottom: 16 }}>{p.titleDe}</div>
               <Paragraphs text={p.desc} style={{ fontFamily: "var(--body)", fontSize: "calc(var(--fs)*0.9)", lineHeight: 1.8, color: "var(--soft)", letterSpacing: "0.01em" }} />
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--rule)", fontFamily: "var(--body)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1.75, color: "var(--text)", fontWeight: 500 }}>{p.challenge}</div>
             </div>
@@ -407,7 +408,7 @@ function LernenTab({ data, setData }) {
                   </button>
                   {isOpen && (
                     <div style={{ padding: "16px 0 16px 34px", borderBottom: "1px solid var(--rule)" }}>
-                      <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", color: "var(--muted)", fontStyle: "italic", marginBottom: 12 }}>„{p.title}"</div>
+                      <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.75)", color: "var(--muted)", fontStyle: "italic", marginBottom: 12 }}>{p.titleDe}</div>
                       <Paragraphs text={p.desc} style={{ fontFamily: "var(--body)", fontSize: "calc(var(--fs)*0.9)", lineHeight: 1.8, color: "var(--soft)", marginBottom: 12, letterSpacing: "0.01em" }} />
                       <div style={{ fontFamily: "var(--body)", fontSize: "calc(var(--fs)*0.85)", lineHeight: 1.75, color: "var(--text)", fontWeight: 500, paddingTop: 12, borderTop: "1px solid var(--rule)" }}>{p.challenge}</div>
                     </div>
@@ -431,15 +432,15 @@ function JournalTab({ data, setData }) {
   const [newText, setNewText] = useState("");
   const [newDate, setNewDate] = useState(today());
 
-  // Collect all entries: daily reflections + manual journal entries
+  // Collect all entries: progress reflections + manual journal entries
   const entries = [];
 
-  // Daily entries with reflections
-  Object.entries(data.daily || {}).forEach(([date, e]) => {
+  // Progress-based entries with reflections
+  Object.entries(data.progress || {}).forEach(([key, e]) => {
     if (e.reflection && e.reflection.trim()) {
-      const idx = dayOfYear(date) % PRINCIPLES.length;
-      const p = PRINCIPLES[idx];
-      entries.push({ type: "daily", date, principleId: p.id, text: e.reflection, applied: e.applied });
+      const pid = Number(key.replace("p", ""));
+      const p = PRINCIPLES.find(x => x.id === pid);
+      if (p) entries.push({ type: "progress", date: e.completedAt || "", principleId: p.id, text: e.reflection, applied: e.applied });
     }
   });
 
@@ -523,7 +524,7 @@ function JournalTab({ data, setData }) {
                 <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.65)", color: "var(--muted)" }}>{e.date}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {e.applied && <span style={{ fontSize: "calc(var(--fs)*0.6)", color: e.applied === "yes" ? "var(--c-green)" : e.applied === "partly" ? "var(--c-p4)" : "var(--c-red)" }}>{e.applied === "yes" ? "Angewendet" : e.applied === "partly" ? "Teilweise" : "Nicht angewendet"}</span>}
-                  <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: PC[p?.part || 1], letterSpacing: "0.08em", textTransform: "uppercase" }}>{e.type === "daily" ? "Tagesaufgabe" : "Journal"}</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: PC[p?.part || 1], letterSpacing: "0.08em", textTransform: "uppercase" }}>{e.type === "progress" ? "Lektion" : "Journal"}</span>
                 </div>
               </div>
               {p && <div style={{ fontSize: "calc(var(--fs)*0.8)", color: "var(--text)", fontWeight: 500, marginBottom: 6 }}>{p.titleDe}</div>}
@@ -543,8 +544,8 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
   function us(k, v) { const n = { ...st, [k]: v }; setSt(n); }
 
   // Stats
-  const totalDays = Object.values(data.daily || {}).filter(e => e.done).length;
-  const journalCount = (data.journal || []).length + Object.values(data.daily || {}).filter(e => e.reflection?.trim()).length;
+  const totalDays = Object.values(data.progress || {}).filter(e => e.done).length;
+  const journalCount = (data.journal || []).length + Object.values(data.progress || {}).filter(e => e.reflection?.trim()).length;
   const quizTotal = Object.values(data.quiz || {}).reduce((a, q) => a + q.know + q.practice, 0);
   const quizKnow = Object.values(data.quiz || {}).reduce((a, q) => a + q.know, 0);
 
@@ -554,7 +555,7 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
       <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.6)", color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 16 }}>Statistiken</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, borderBottom: "1px solid var(--rule)", marginBottom: 24 }}>
         {[
-          { n: totalDays, l: "Tage geübt" },
+          { n: totalDays, l: "Abgeschlossen" },
           { n: journalCount, l: "Einträge" },
           { n: quizTotal > 0 ? `${Math.round((quizKnow / quizTotal) * 100)}%` : "—", l: "Quiz-Rate" },
           { n: Object.keys(data.quiz || {}).length + "/30", l: "Abgefragt" },
