@@ -675,9 +675,11 @@ function App() {
   const saveTimer = useRef(null);
   const unsubSnap = useRef(null);
   const userRef = useRef(null);
+  const dataRef = useRef(data);
 
-  // Keep userRef in sync
+  // Keep refs in sync
   useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { dataRef.current = data; }, [data]);
 
   // --- Firestore doc ref ---
   function userDocRef(u) {
@@ -721,7 +723,7 @@ function App() {
     const u = userRef.current;
     if (u && !u.demo) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => saveToFirestore(data, s), 800);
+      saveTimer.current = setTimeout(() => saveToFirestore(dataRef.current, s), 800);
     }
   }
 
@@ -735,8 +737,15 @@ function App() {
       console.log('[SYNC] snapshot received, exists:', snap.exists);
       if (snap.exists) {
         const d = snap.data();
-        if (d.appData) setData(d.appData);
-        if (d.settings) setSt(d.settings);
+        if (d.appData) {
+          setData(d.appData);
+          dataRef.current = d.appData;
+          sv(K_DATA, d.appData); // persist to localStorage so it survives reloads
+        }
+        if (d.settings) {
+          setSt(d.settings);
+          sv(K_SET, d.settings);
+        }
         setSyncStatus('ok');
       }
     }, (err) => {
