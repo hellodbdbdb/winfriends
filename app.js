@@ -4,16 +4,7 @@
    ==================================================================== */
 const { useState, useEffect, useRef, useCallback } = React;
 
-/* ── Firebase — same pattern as ExecComms ── */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBHUzsncbGxERPwNjxEFDNbC1iO0Ekq8Lg",
-  authDomain: "winfriends-be0a2.firebaseapp.com",
-  projectId: "winfriends-be0a2",
-  storageBucket: "winfriends-be0a2.firebasestorage.app",
-  messagingSenderId: "808358754951",
-  appId: "1:808358754951:web:760feac348bd69409e1622"
-};
-const firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+/* ── Firebase — reuse app already initialized in index.html ── */
 const fbAuth = firebase.auth();
 const fbDb = firebase.firestore();
 
