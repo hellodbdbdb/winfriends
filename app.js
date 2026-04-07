@@ -707,10 +707,9 @@ function App() {
 
   function persistData(d) {
     setData(d);
+    sv(K_DATA, d); // always save to localStorage as fallback
     const u = userRef.current;
-    if (u && u.demo) {
-      sv(K_DATA, d);
-    } else if (u) {
+    if (u && !u.demo) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => saveToFirestore(d, st), 800);
     }
@@ -718,10 +717,9 @@ function App() {
 
   function persistSettings(s) {
     setSt(s);
+    sv(K_SET, s); // always save to localStorage as fallback
     const u = userRef.current;
-    if (u && u.demo) {
-      sv(K_SET, s);
-    } else if (u) {
+    if (u && !u.demo) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => saveToFirestore(data, s), 800);
     }
