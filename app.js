@@ -763,9 +763,17 @@ function App() {
         setUser(u);
         setLoading(false);
       } else {
-        setUser(null);
-        setLoading(false);
-        if (unsubSnap.current) unsubSnap.current();
+        // Check if we were in demo mode
+        if (ld("wf_demo", false)) {
+          const saved = ld(K_DATA, {});
+          setUser({ demo: true, uid: 'demo', displayName: 'Demo' });
+          setData(saved);
+          setLoading(false);
+        } else {
+          setUser(null);
+          setLoading(false);
+          if (unsubSnap.current) unsubSnap.current();
+        }
       }
     });
     return () => { unsub(); if (unsubSnap.current) unsubSnap.current(); };
@@ -793,6 +801,7 @@ function App() {
   // --- Demo mode ---
   function handleDemo() {
     const saved = ld(K_DATA, {});
+    sv("wf_demo", true);
     setUser({ demo: true, uid: 'demo', displayName: 'Demo' });
     setData(saved);
     setLoading(false);
@@ -804,6 +813,7 @@ function App() {
     if (user && !user.demo) {
       fbAuth.signOut();
     }
+    localStorage.removeItem("wf_demo");
     setUser(null);
     setData({});
     setSyncStatus('ok');
