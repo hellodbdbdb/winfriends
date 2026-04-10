@@ -676,22 +676,27 @@ function App() {
   const unsubSnap = useRef(null);
   const userRef = useRef(null);
   const dataRef = useRef(data);
+  const stRef = useRef(st);
 
-  // Keep refs in sync
+  // Keep ALL refs in sync — eliminates stale closure bugs in callbacks
   useEffect(() => { userRef.current = user; }, [user]);
   useEffect(() => { dataRef.current = data; }, [data]);
+  useEffect(() => { stRef.current = st; }, [st]);
 
   // --- Firestore doc ref ---
   function userDocRef(u) {
     const uid = u ? u.uid : (userRef.current ? userRef.current.uid : null);
+    if (!uid) { console.error('[SYNC] no uid for doc ref!'); }
     return fbDb.collection("winfriends-users").doc(uid);
   }
 
-  // --- Save to Firestore (debounced) ---
-  async function saveToFirestore(d, s) {
+  // --- Save to Firestore (always reads from refs for latest state) ---
+  const saveToFirestore = useCallback(async () => {
     const u = userRef.current;
-    if (!u || u.demo) { console.log('[SYNC] skip: no user or demo'); return; }
-    console.log('[SYNC] saving to Firestore…', u.uid);
+    const d = dataRef.current;
+    const s = stRef.current;
+    if (!u || u.demo) { console.log('[SYNC] skip save: no user or demo'); return; }
+    console.log('[SYNC] saving to Firestore…', u.uid, 'keys:', Object.keys(d));
     setSyncStatus('saving');
     try {
       await userDocRef(u).set({
@@ -705,48 +710,65 @@ function App() {
       console.error('[SYNC] save FAILED:', e);
       setSyncStatus('error');
     }
+  }, []);
+
+  // --- Debounced save (like Michelin App pattern) ---
+  function debouncedSave() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(saveToFirestore, 800);
   }
 
   function persistData(d) {
     setData(d);
-    sv(K_DATA, d); // always save to localStorage as fallback
+    dataRef.current = d;  // update ref immediately (don't wait for effect)
+    sv(K_DATA, d);
     const u = userRef.current;
-    if (u && !u.demo) {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => saveToFirestore(d, st), 800);
-    }
+    if (u && !u.demo) debouncedSave();
   }
 
   function persistSettings(s) {
     setSt(s);
-    sv(K_SET, s); // always save to localStorage as fallback
+    stRef.current = s;  // update ref immediately
+    sv(K_SET, s);
     const u = userRef.current;
-    if (u && !u.demo) {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => saveToFirestore(dataRef.current, s), 800);
-    }
+    if (u && !u.demo) debouncedSave();
   }
 
-  // --- Listen to Firestore (real-time sync) ---
-  function listenToFirestore() {
+  // --- Listen to Firestore (real-time cross-device sync) ---
+  function startFirestoreListener(u) {
     if (unsubSnap.current) unsubSnap.current();
-    const u = userRef.current;
     if (!u || u.demo) return;
-    console.log('[SYNC] listening to Firestore for', u.uid);
-    unsubSnap.current = userDocRef(u).onSnapshot((snap) => {
+    console.log('[SYNC] starting listener for uid:', u.uid);
+    const ref = fbDb.collection("winfriends-users").doc(u.uid);
+    unsubSnap.current = ref.onSnapshot((snap) => {
       console.log('[SYNC] snapshot received, exists:', snap.exists);
       if (snap.exists) {
         const d = snap.data();
+        console.log('[SYNC] snapshot data keys:', Object.keys(d));
+        // Deep equality check (like Michelin App) to avoid unnecessary updates
         if (d.appData) {
-          setData(d.appData);
-          dataRef.current = d.appData;
-          sv(K_DATA, d.appData); // persist to localStorage so it survives reloads
+          const incoming = JSON.stringify(d.appData);
+          const current = JSON.stringify(dataRef.current);
+          if (incoming !== current) {
+            console.log('[SYNC] data changed remotely, updating…');
+            setData(d.appData);
+            dataRef.current = d.appData;
+            sv(K_DATA, d.appData);
+          }
         }
         if (d.settings) {
-          setSt(d.settings);
-          sv(K_SET, d.settings);
+          const incomingSt = JSON.stringify(d.settings);
+          const currentSt = JSON.stringify(stRef.current);
+          if (incomingSt !== currentSt) {
+            console.log('[SYNC] settings changed remotely, updating…');
+            setSt(d.settings);
+            stRef.current = d.settings;
+            sv(K_SET, d.settings);
+          }
         }
         setSyncStatus('ok');
+      } else {
+        console.log('[SYNC] no document found, will create on first save');
       }
     }, (err) => {
       console.error('[SYNC] snapshot error:', err);
@@ -756,10 +778,15 @@ function App() {
 
   // --- Boot: auth listener ---
   useEffect(() => {
+    console.log('[AUTH] setting up onAuthStateChanged…');
     const unsub = fbAuth.onAuthStateChanged((u) => {
+      console.log('[AUTH] state changed:', u ? u.uid : 'null', 'email:', u ? u.email : 'n/a');
       if (u) {
+        userRef.current = u;  // set ref immediately before starting listener
         setUser(u);
         setLoading(false);
+        // Start listener directly here with the user object (no closure issues)
+        startFirestoreListener(u);
       } else {
         // Check if we were in demo mode
         if (ld("wf_demo", false)) {
@@ -776,13 +803,6 @@ function App() {
     });
     return () => { unsub(); if (unsubSnap.current) unsubSnap.current(); };
   }, []);
-
-  // --- Start Firestore listener when user logs in ---
-  useEffect(() => {
-    if (user && !user.demo) {
-      listenToFirestore();
-    }
-  }, [user]);
 
   // --- Google sign-in ---
   async function handleGoogle() {
