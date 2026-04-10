@@ -3,6 +3,7 @@
    Same pattern as ExecComms
    ==================================================================== */
 const { useState, useEffect, useRef, useCallback } = React;
+const APP_VERSION = "v8";
 
 /* ── Firebase — reuse app already initialized in index.html ── */
 const fbAuth = firebase.auth();
@@ -533,6 +534,25 @@ function JournalTab({ data, setData }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function SettingsTab({ settings: st, setSt, data, setData, onOut, user, syncStatus }) {
   function us(k, v) { const n = { ...st, [k]: v }; setSt(n); }
+  const [testResult, setTestResult] = useState(null);
+  async function testSync() {
+    if (!user || user.demo) { setTestResult("Nur im Cloud-Modus möglich"); return; }
+    setTestResult("Schreibe...");
+    try {
+      const ref = fbDb.collection("winfriends-users").doc(user.uid);
+      await ref.set({ _test: Date.now(), updatedAt: new Date().toISOString() }, { merge: true });
+      setTestResult("Schreiben OK! Lese...");
+      const snap = await ref.get();
+      if (snap.exists) {
+        const d = snap.data();
+        setTestResult("OK! Dokument hat Keys: " + Object.keys(d).join(", ") + " · appData: " + (d.appData ? Object.keys(d.appData).join(",") || "leer" : "fehlt"));
+      } else {
+        setTestResult("Fehler: Dokument existiert nicht nach Schreiben");
+      }
+    } catch(e) {
+      setTestResult("FEHLER: " + e.code + " — " + e.message);
+    }
+  }
 
   // Stats
   const totalDays = Object.values(data.progress || {}).filter(e => e.done).length;
@@ -628,9 +648,13 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut, user, syncStat
       <Rule />
       {/* Debug / Sync info */}
       <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)", letterSpacing: "0.06em", margin: "24px 0 8px", opacity: 0.6 }}>
-        <div>Mode: {user?.demo ? 'Demo (lokal)' : 'Cloud'} · Sync: {syncStatus}</div>
+        <div>{APP_VERSION} · Mode: {user?.demo ? 'Demo (lokal)' : 'Cloud'} · Sync: {syncStatus}</div>
         {user && !user.demo && <div>UID: {user.uid}</div>}
-        <div>Daten: {Object.keys(data.progress || {}).length} Einträge</div>
+        <div>Daten: {Object.keys(data.progress || {}).length} Einträge · Keys: {Object.keys(data).join(',') || 'leer'}</div>
+        {user && !user.demo && <div style={{ marginTop: 8 }}>
+          <button onClick={testSync} style={{ padding: "6px 12px", fontSize: "calc(var(--fs)*0.6)", fontFamily: "var(--mono)", background: "transparent", border: "1px solid var(--rule)", color: "var(--muted)", cursor: "pointer", borderRadius: 8 }}>Sync testen</button>
+          {testResult && <div style={{ marginTop: 6, wordBreak: "break-all" }}>{testResult}</div>}
+        </div>}
       </div>
 
       <button onClick={onOut} style={{
