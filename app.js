@@ -3,11 +3,13 @@
    Same pattern as ExecComms
    ==================================================================== */
 const { useState, useEffect, useRef, useCallback } = React;
-const APP_VERSION = "v8";
+const APP_VERSION = "v9";
 
 /* ── Firebase — reuse app already initialized in index.html ── */
 const fbAuth = firebase.auth();
 const fbDb = firebase.firestore();
+// Enable verbose Firestore logging for debugging
+firebase.firestore.setLogLevel && firebase.firestore.setLogLevel('debug');
 
 /* ── localStorage helpers (offline / demo fallback) ── */
 const K_DATA = "wf_data";
@@ -537,20 +539,28 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut, user, syncStat
   const [testResult, setTestResult] = useState(null);
   async function testSync() {
     if (!user || user.demo) { setTestResult("Nur im Cloud-Modus möglich"); return; }
-    setTestResult("Schreibe...");
+    setTestResult("1/3 Teste Lesen...");
+    const ref = fbDb.collection("winfriends-users").doc(user.uid);
+    // Test READ with timeout
     try {
-      const ref = fbDb.collection("winfriends-users").doc(user.uid);
-      await ref.set({ _test: Date.now(), updatedAt: new Date().toISOString() }, { merge: true });
-      setTestResult("Schreiben OK! Lese...");
-      const snap = await ref.get();
-      if (snap.exists) {
-        const d = snap.data();
-        setTestResult("OK! Dokument hat Keys: " + Object.keys(d).join(", ") + " · appData: " + (d.appData ? Object.keys(d.appData).join(",") || "leer" : "fehlt"));
-      } else {
-        setTestResult("Fehler: Dokument existiert nicht nach Schreiben");
-      }
+      const readResult = await Promise.race([
+        ref.get(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT nach 5s")), 5000))
+      ]);
+      setTestResult("2/3 Lesen OK (exists:" + readResult.exists + "). Teste Schreiben...");
     } catch(e) {
-      setTestResult("FEHLER: " + e.code + " — " + e.message);
+      setTestResult("LESEN FEHLER: " + (e.code || '') + " " + e.message);
+      return;
+    }
+    // Test WRITE with timeout
+    try {
+      await Promise.race([
+        ref.set({ _test: Date.now() }, { merge: true }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT nach 5s")), 5000))
+      ]);
+      setTestResult("3/3 Alles OK! Lesen + Schreiben funktioniert.");
+    } catch(e) {
+      setTestResult("SCHREIBEN FEHLER: " + (e.code || '') + " " + e.message + " — Prüfe Firestore Security Rules!");
     }
   }
 
