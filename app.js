@@ -531,7 +531,7 @@ function JournalTab({ data, setData }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    SETTINGS TAB
    ═══════════════════════════════════════════════════════════════════════════ */
-function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
+function SettingsTab({ settings: st, setSt, data, setData, onOut, user, syncStatus }) {
   function us(k, v) { const n = { ...st, [k]: v }; setSt(n); }
 
   // Stats
@@ -626,8 +626,15 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut }) {
 
       <div style={{ height: 24 }} />
       <Rule />
+      {/* Debug / Sync info */}
+      <div style={{ fontFamily: "var(--mono)", fontSize: "calc(var(--fs)*0.55)", color: "var(--muted)", letterSpacing: "0.06em", margin: "24px 0 8px", opacity: 0.6 }}>
+        <div>Mode: {user?.demo ? 'Demo (lokal)' : 'Cloud'} · Sync: {syncStatus}</div>
+        {user && !user.demo && <div>UID: {user.uid}</div>}
+        <div>Daten: {Object.keys(data.progress || {}).length} Einträge</div>
+      </div>
+
       <button onClick={onOut} style={{
-        width: "100%", padding: "12px", marginTop: 24, fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500,
+        width: "100%", padding: "12px", marginTop: 16, fontSize: "calc(var(--fs)*0.75)", fontFamily: "var(--mono)", fontWeight: 500,
         background: "transparent", border: "1px solid var(--rule)", color: "var(--muted)", cursor: "pointer", borderRadius: 12,
       }}>Abmelden</button>
     </div>
@@ -776,19 +783,26 @@ function App() {
     });
   }
 
-  // --- Boot: auth listener ---
+  // --- Boot: auth listener + redirect result ---
   useEffect(() => {
-    console.log('[AUTH] setting up onAuthStateChanged…');
+    console.log('[AUTH] boot: setting up auth…');
+    // Handle redirect result (needed for mobile Safari where popup is blocked)
+    fbAuth.getRedirectResult().then((result) => {
+      if (result && result.user) {
+        console.log('[AUTH] redirect result: uid=', result.user.uid);
+      }
+    }).catch((e) => {
+      console.warn('[AUTH] redirect result error:', e.code, e.message);
+    });
+
     const unsub = fbAuth.onAuthStateChanged((u) => {
-      console.log('[AUTH] state changed:', u ? u.uid : 'null', 'email:', u ? u.email : 'n/a');
+      console.log('[AUTH] state changed:', u ? 'uid=' + u.uid : 'null', u ? 'email=' + u.email : '');
       if (u) {
-        userRef.current = u;  // set ref immediately before starting listener
+        userRef.current = u;
         setUser(u);
         setLoading(false);
-        // Start listener directly here with the user object (no closure issues)
         startFirestoreListener(u);
       } else {
-        // Check if we were in demo mode
         if (ld("wf_demo", false)) {
           const saved = ld(K_DATA, {});
           setUser({ demo: true, uid: 'demo', displayName: 'Demo' });
@@ -804,12 +818,15 @@ function App() {
     return () => { unsub(); if (unsubSnap.current) unsubSnap.current(); };
   }, []);
 
-  // --- Google sign-in ---
+  // --- Google sign-in (popup first, redirect fallback for mobile) ---
   async function handleGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     try {
+      console.log('[AUTH] trying signInWithPopup…');
       await fbAuth.signInWithPopup(provider);
+      console.log('[AUTH] popup succeeded');
     } catch(e) {
+      console.warn('[AUTH] popup failed:', e.code, '→ trying redirect');
       if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
         await fbAuth.signInWithRedirect(provider);
       } else { throw e; }
@@ -876,7 +893,7 @@ function App() {
         {tab === "heute" && <HeuteTab data={data} setData={persistData} />}
         {tab === "lernen" && <LernenTab data={data} setData={persistData} />}
         {tab === "journal" && <JournalTab data={data} setData={persistData} />}
-        {tab === "settings" && <SettingsTab settings={st} setSt={persistSettings} data={data} setData={persistData} onOut={handleSignOut} />}
+        {tab === "settings" && <SettingsTab settings={st} setSt={persistSettings} data={data} setData={persistData} onOut={handleSignOut} user={user} syncStatus={syncStatus} />}
         <Nav tab={tab} set={setTab} />
       </div>
     </div>
