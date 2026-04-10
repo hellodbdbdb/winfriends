@@ -3,7 +3,7 @@
    Same pattern as ExecComms
    ==================================================================== */
 const { useState, useEffect, useRef, useCallback } = React;
-const APP_VERSION = "v9";
+const APP_VERSION = "v10";
 
 /* ── Firebase — reuse app already initialized in index.html ── */
 const fbAuth = firebase.auth();
@@ -539,29 +539,79 @@ function SettingsTab({ settings: st, setSt, data, setData, onOut, user, syncStat
   const [testResult, setTestResult] = useState(null);
   async function testSync() {
     if (!user || user.demo) { setTestResult("Nur im Cloud-Modus möglich"); return; }
-    setTestResult("1/3 Teste Lesen...");
-    const ref = fbDb.collection("winfriends-users").doc(user.uid);
-    // Test READ with timeout
+    const results = [];
+
+    // Step 1: Get auth token
+    setTestResult("1/4 Hole Auth-Token...");
+    let token;
     try {
-      const readResult = await Promise.race([
-        ref.get(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT nach 5s")), 5000))
-      ]);
-      setTestResult("2/3 Lesen OK (exists:" + readResult.exists + "). Teste Schreiben...");
+      token = await user.getIdToken(true);
+      results.push("Token: OK (" + token.substring(0, 20) + "...)");
+      setTestResult(results.join(" → "));
     } catch(e) {
-      setTestResult("LESEN FEHLER: " + (e.code || '') + " " + e.message);
+      setTestResult("TOKEN FEHLER: " + e.message);
       return;
     }
-    // Test WRITE with timeout
+
+    // Step 2: Test REST API directly (bypasses SDK entirely)
+    setTestResult(results.join(" → ") + " → 2/4 REST API Test...");
+    const restUrl = "https://firestore.googleapis.com/v1/projects/winfriends-be0a2/databases/(default)/documents/winfriends-users/" + user.uid;
     try {
-      await Promise.race([
-        ref.set({ _test: Date.now() }, { merge: true }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT nach 5s")), 5000))
+      const resp = await Promise.race([
+        fetch(restUrl, { headers: { "Authorization": "Bearer " + token } }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT 5s")), 5000))
       ]);
-      setTestResult("3/3 Alles OK! Lesen + Schreiben funktioniert.");
+      const body = await resp.text();
+      if (resp.ok) {
+        results.push("REST Lesen: OK (" + resp.status + ")");
+      } else {
+        results.push("REST Lesen: " + resp.status + " " + body.substring(0, 100));
+      }
+      setTestResult(results.join(" → "));
     } catch(e) {
-      setTestResult("SCHREIBEN FEHLER: " + (e.code || '') + " " + e.message + " — Prüfe Firestore Security Rules!");
+      results.push("REST FEHLER: " + e.message);
+      setTestResult(results.join(" → "));
+      return;
     }
+
+    // Step 3: Test REST write
+    setTestResult(results.join(" → ") + " → 3/4 REST Schreiben...");
+    try {
+      const writeUrl = restUrl + "?updateMask.fieldPaths=_test";
+      const resp = await Promise.race([
+        fetch(writeUrl, {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: { _test: { integerValue: String(Date.now()) } } })
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT 5s")), 5000))
+      ]);
+      if (resp.ok) {
+        results.push("REST Schreiben: OK");
+      } else {
+        const body = await resp.text();
+        results.push("REST Schreiben: " + resp.status + " " + body.substring(0, 100));
+      }
+      setTestResult(results.join(" → "));
+    } catch(e) {
+      results.push("REST Schreiben FEHLER: " + e.message);
+      setTestResult(results.join(" → "));
+      return;
+    }
+
+    // Step 4: Test SDK with forced server fetch
+    setTestResult(results.join(" → ") + " → 4/4 SDK Test...");
+    try {
+      const ref = fbDb.collection("winfriends-users").doc(user.uid);
+      const snap = await Promise.race([
+        ref.get({ source: 'server' }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("SDK TIMEOUT 5s")), 5000))
+      ]);
+      results.push("SDK: OK (exists:" + snap.exists + ")");
+    } catch(e) {
+      results.push("SDK: " + (e.code || '') + " " + e.message);
+    }
+    setTestResult(results.join(" → "));
   }
 
   // Stats
